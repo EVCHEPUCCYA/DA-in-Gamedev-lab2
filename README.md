@@ -69,66 +69,196 @@ while i <= len(mon):
 Вывод в Google Sheets:
 ![image_2023-01-28_23-58-06](https://user-images.githubusercontent.com/113372135/215286105-a945d753-1b71-4ea8-b278-a55510401dfb.png)
 
-- Определите связанные функции. Функция модели: определяет модель линейной регрессии wx+b. Функция потерь: функция потерь среднеквадратичной ошибки. Функция оптимизации: метод градиентного спуска для нахождения частных производных w и b.
+Unity:
+В итоге получилось исправить ошибки, из-за которой не работал счётчик, благодаря коду из видео
 ```
-def model (a, b, x): # F Модели
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.Networking;
+using SimpleJSON;
+
+public class NewBehaviourScript : MonoBehaviour
+{
+    public AudioClip goodSpeak;
+    public AudioClip normalSpeak;
+    public AudioClip badSpeak;
+    private AudioSource selectAudio;
+    private Dictionary<string,float> dataSet = new Dictionary<string, float>();
+    private bool statusStart = false;
+    private int i = 1;
+
+    // Start is called before the first frame update
+    void Start()
+    {
+        StartCoroutine(GoogleSheets());
+    }
+
+    // Update is called once per frame
+    void Update()
+    {
+        if (dataSet["Mon_" + i.ToString()] <= 10 & statusStart == false & i != dataSet.Count)
+        {
+            StartCoroutine(PlaySelectAudioGood());
+            Debug.Log(dataSet["Mon_" + i.ToString()]);
+        }
+
+        if (dataSet["Mon_" + i.ToString()] > 10 & dataSet["Mon_" + i.ToString()] < 100 & statusStart == false & i != dataSet.Count)
+        {
+            StartCoroutine(PlaySelectAudioNormal());
+            Debug.Log(dataSet["Mon_" + i.ToString()]);
+        }
+
+        if (dataSet["Mon_" + i.ToString()] >= 100 & statusStart == false & i != dataSet.Count)
+        {
+            StartCoroutine(PlaySelectAudioBad());
+            Debug.Log(dataSet["Mon_" + i.ToString()]);
+        }
+    }
+
+    IEnumerator GoogleSheets()
+    {
+        UnityWebRequest curentResp = UnityWebRequest.Get("https://sheets.googleapis.com/v4/spreadsheets/1jGloGDtaqSpmW_VpFyU-cYFuMOraPF6SVVSSDeVBWTs/values/Лист1?key=AIzaSyDgkbWd0LY4gY7aQdq4OdE7zLZLK_m7dsk");
+        yield return curentResp.SendWebRequest();
+        string rawResp = curentResp.downloadHandler.text;
+        var rawJson = JSON.Parse(rawResp);
+        foreach (var itemRawJson in rawJson["values"])
+        {
+            var parseJson = JSON.Parse(itemRawJson.ToString());
+            var selectRow = parseJson[0].AsStringList;
+            dataSet.Add(("Mon_" + selectRow[0]), float.Parse(selectRow[2]));
+        }
+    }
+
+    IEnumerator PlaySelectAudioGood()
+    {
+        statusStart = true;
+        selectAudio = GetComponent<AudioSource>();
+        selectAudio.clip = goodSpeak;
+        selectAudio.Play();
+        yield return new WaitForSeconds(3);
+        statusStart = false;
+        i++;
+    }
+    IEnumerator PlaySelectAudioNormal()
+    {
+        statusStart = true;
+        selectAudio = GetComponent<AudioSource>();
+        selectAudio.clip = normalSpeak;
+        selectAudio.Play();
+        yield return new WaitForSeconds(3);
+        statusStart = false;
+        i++;
+    }
+    IEnumerator PlaySelectAudioBad()
+    {
+        statusStart = true;
+        selectAudio = GetComponent<AudioSource>();
+        selectAudio.clip = badSpeak;
+        selectAudio.Play();
+        yield return new WaitForSeconds(4);
+        statusStart = false;
+        i++;
+    }
+}
+```
+![image_2023-01-30_22-02-47](https://user-images.githubusercontent.com/113372135/215549934-6f6a799e-eca8-445f-8b76-bc4cf6b74091.png)
+
+## Задание 2
+### Реализовать запись в Google-таблицу набора данных, полученных с помощью линейной регрессии из лабораторной работы № 1.
+Линейная регрессия повторно воспроизведена в этом скрипте:
+```
+import gspread
+import numpy as np
+import matplotlib.pyplot as plt
+
+x = [3,21,22,34,54,34,55,67,89,99]
+x = np.array(x)
+y = [2,22,24,65,79,82,55,130,150,199]
+y = np.array(y)
+
+plt.scatter(x,y)
+
+def model(a, b, x):
     return a*x + b
 
-
-def loss_function(a, b, x, y): # F потерь
+def loss_function(a, b, x, y):
     num = len(x)
-    prediction = model (a,b,x)
+    prediction=model(a,b,x)
     return (0.5/num) * (np.square(prediction-y)).sum()
 
 def optimize(a,b,x,y):
-    num=len(x)
+    num = len(x)
     prediction = model(a,b,x)
-    da = (1.0/num) * ( (prediction -y)*x).sum()
+    da = (1.0/num) * ((prediction -y)*x).sum()
     db = (1.0/num) * ((prediction -y).sum())
     a = a - Lr*da
-    b = b = Lr*db
+    b = b - Lr*db
     return a, b
 
-def iterate(a, b, x, y, times) :
+def iterate(a,b,x,y,times):
     for i in range(times):
         a,b = optimize(a,b,x,y)
-    return a, b
-```
-![image_2023-01-27_14-33-09](https://user-images.githubusercontent.com/113372135/215065615-b4011654-a292-4052-9633-430943391eb2.png)
+    return a,b
 
-```
-a = np.random.rand (1)
-print(a)
+a = np.random.rand(1)
 b = np.random.rand(1)
-print (b)
-Lr = 0.00001
+Lr = 0.000001
 
-a,b = iterate(a,b,x,y,1)
-prediction=model (a, b, x)
-loss = loss_function(a, b, x, y)
-print (a, b, loss)
-plt.scatter(x, y)
-plt.plot(x,prediction)
+gc = gspread.service_account(filename='unitydatasciense-376111-12b39e604d43.json')
+sh = gc.open('UnitySheets')
+price = np.random.randint(2000, 10000, 11)
+mon = list(range(1, 11))
+i = 0
+while i <= len(mon):
+    i += 1
+    if i == 0:
+        continue
+    else:
+        a,b = iterate(a,b,x,y,100)
+        prediction=model(a,b,x)
+        loss = loss_function(a, b, x, y)
+        tempInf = loss
+        tempInf = str(tempInf)
+        tempInf = tempInf.replace('.',',')
+        sh.sheet1.update(('A' + str(i)), str(i))
+        sh.sheet1.update(('B' + str(i)), str(tempInf))
+        print(tempInf)
 ```
-![image_2023-01-27_14-52-17](https://user-images.githubusercontent.com/113372135/215065787-493a0042-bbdb-4c33-ac24-0b608a83fb64.png)
 
-
-## Задание 2
-### Должна ли величина loss стремиться к нулю при изменении исходных данных? Ответьте на вопрос, приведите пример выполнения кода, который подтверждает ваш ответ.
-
-При изменении исходных данных, loss не меняется.
-![image_2023-01-27_14-52-17](https://user-images.githubusercontent.com/113372135/215066053-90dd6364-d89c-4560-b4af-7bf0c40d7dee.png)
+Вывод в Google Sheets:
+![image_2023-01-30_23-37-20](https://user-images.githubusercontent.com/113372135/215565758-43c8a889-de72-495c-a1fc-4ff44d58b559.png)
 
 ## Задание 3
-### Какова роль параметра Lr? Ответьте на вопрос, приведите пример выполнения кода, который подтверждает ваш ответ. В качестве эксперимента можете изменить значение параметра.
+### Самостоятельно разработать сценарий воспроизведения звукового сопровождения в Unity в зависимости от изменения считанных данных в задании 2.
+Всё вышло, просто изменив параметры вывода звука в Update:
+```
+void Update()
+{
+    if (dataSet["Mon_" + i.ToString()] <= 500 & statusStart == false & i != dataSet.Count)
+    {
+        StartCoroutine(PlaySelectAudioGood());
+        Debug.Log(dataSet["Mon_" + i.ToString()]);
+    }
 
-Параметр loss настраивает кривую, изменяя x и y. Так при меньшем loss, точность кривой упадёт.
-![image_2023-01-27_15-09-43](https://user-images.githubusercontent.com/113372135/215066289-a473d4ed-bd03-4a17-9f62-a19738aafb01.png)
-![image_2023-01-27_15-10-27](https://user-images.githubusercontent.com/113372135/215066297-1b829fa2-9e9c-4732-b7ce-c619e58cfebd.png)
+    if (dataSet["Mon_" + i.ToString()] > 200 & dataSet["Mon_" + i.ToString()] < 1000 & statusStart == false & i != dataSet.Count)
+    {
+        StartCoroutine(PlaySelectAudioNormal());
+        Debug.Log(dataSet["Mon_" + i.ToString()]);
+    }
+
+    if (dataSet["Mon_" + i.ToString()] >= 400 & statusStart == false & i != dataSet.Count)
+    {
+        StartCoroutine(PlaySelectAudioBad());
+        Debug.Log(dataSet["Mon_" + i.ToString()]);
+    }
+}
+```
+![image_2023-01-31_00-06-50](https://user-images.githubusercontent.com/113372135/215571572-2f9559db-9396-4d34-b067-c4c5b3eadb18.png)
 
 ## Выводы
 
-Немного разобрался с использованием Unity, через муки и нервы настроил использование Unity и Jupiter. Ознакомился с линейной регрессией в python. 
+Черех огонь и воду, но получилось подключить все приложения. Механика изменения звука от имеющихся данных интересная, беру на вооружение в своих проектах.
 
 | Plugin | README |
 | ------ | ------ |
